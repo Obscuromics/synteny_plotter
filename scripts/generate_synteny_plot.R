@@ -167,7 +167,7 @@ plot(0,cex = 0, xlim = c(1, plot_length),
 
 main_counter <- 1
 y_offset <- 0
-y_increment <- 17
+y_increment <- 11.65
 
 for (file in busco_list[-1]){
   j <- match(file, busco_list)
@@ -207,28 +207,30 @@ for (file in busco_list[-1]){
   }
   
   # plotting query chromosomes
-  counter <- 0
-  offset <- 0
-  for (i in chr_order_Q$chr){
-    chr_length <- chr_order_Q[chr_order_Q$chr == i,]$length
-    Qfirst <- offset
-    Qlast <- chr_order_Q[chr_order_Q$chr == i,]$length + offset
+  if (main_counter == (length(processed_Q_list) - 4)){
+    counter <- 0
+    offset <- 0
+    for (i in chr_order_Q$chr){
+      chr_length <- chr_order_Q[chr_order_Q$chr == i,]$length
+      Qfirst <- offset
+      Qlast <- chr_order_Q[chr_order_Q$chr == i,]$length + offset
     
-    if (counter != 0){ # only need to offset start/end if this is not the first chr
-      Qfirst <- offset  # allows for accumulative chr positions
-      Qlast <- chr_length + offset # allows for accumulative chr positions
+      if (counter != 0){ # only need to offset start/end if this is not the first chr
+        Qfirst <- offset  # allows for accumulative chr positions
+        Qlast <- chr_length + offset # allows for accumulative chr positions
+      }
+    
+      offset <- offset + chr_length + chr_offset # accumulative offset
+      counter <- counter + 1
+    
+      segments(Qfirst+adjustment_length_Q, 1-gap-y_offset, 
+               Qlast+adjustment_length_Q, 1-gap-y_offset, lwd = 10)
+    
+      text(x = ((Qlast+Qfirst+1)/2)+adjustment_length_Q, y = 1-gap-y_offset, 
+           label = query_chroms[query_chroms$chr == i,]$annot,
+           srt = 0, cex = 0.5, col = "white")
+    
     }
-    
-    offset <- offset + chr_length + chr_offset # accumulative offset
-    counter <- counter + 1
-    
-    segments(Qfirst+adjustment_length_Q, 1-gap-y_offset, 
-             Qlast+adjustment_length_Q, 1-gap-y_offset, lwd = 10)
-    
-    text(x = ((Qlast+Qfirst+1)/2)+adjustment_length_Q, y = 1-gap-y_offset, 
-         label = query_chroms[query_chroms$chr == i,]$annot,
-         srt = 0, cex = 0.5, col = "white")
-    
   }
   
   # plotting reference chromosomes
@@ -253,8 +255,7 @@ for (file in busco_list[-1]){
     text(x = ((Rlast+Rfirst+1)/2)+adjustment_length_R, y = gap-y_offset, 
          label = ref_chroms[ref_chroms$chr == i,]$annot,
          srt = 0, cex = 0.5, col = "white")
-    
-  }
+    }
   
   main_counter <- main_counter + 5
   y_offset <- y_offset + y_increment
