@@ -5,15 +5,15 @@ read_buscos <- function(file_name, prefix){
   df <- read.csv(file_name, sep='\t', comment.char = '#', header = FALSE)[,c(0:6)]
   colnames(df) <- c('busco', 'status', chr_label, paste0(prefix, 'start'), paste0(prefix, 'end'), paste0(prefix, 'strand'))
   # these following lines are assuming '|' is only found in the rows with a bug in them
-  if ( any(grepl("[|]", df[, chr_label])) ){
+  #if ( any(grepl("[|]", df[, chr_label])) ){
     # TODO: add warning here
-    df[, chr_label] <- trim_strings(trim_strings(df[, chr_label], ":", 2), "[|]", 2)
-  }
-  if ( any(grepl("[:]", df[, chr_label])) ){
+    #df[, chr_label] <- trim_strings(trim_strings(df[, chr_label], ":", 2), "[|]", 2)
+  #}
+  #if ( any(grepl("[:]", df[, chr_label])) ){
     # TODO: add warning here
-    df[, chr_label] <- trim_strings(df[, chr_label], ":", 1)
-  }
-  df <- df[df$status == "Complete",]
+    #df[, chr_label] <- trim_strings(df[, chr_label], ":", 1)
+  #}
+  df <- df[df$status %in% c("Complete", "Duplicated"),]
   df <- subset(df, select=-c(status))
   return(df)
 }
@@ -147,9 +147,9 @@ offset_chr <- function(df, q_or_r, chr_offset, chr_order){
   #chr_order <- unique(df[[chr_prefix]]) # no longer needed as specify order in function
   chrStart <- paste0(q_or_r, 'start')
   chrEnd <- paste0(q_or_r, 'end')
-  for (i in chr_order){
+  for (i in chr_order$chr){
     chr_df <- df[df[[chr_prefix]] == i,]
-    max_end <- max(chr_df[[chrStart]])
+    max_end <- chr_order[chr_order$chr == i,]$length
     if (counter != 0){ # only need to offset start/end if this is not the first chr
       chr_df <- chr_df %>% arrange(Rstart) # sort by ref regardless of it ref or query
       chr_df[[chrStart]] <- chr_df[[chrStart]] + offset  # allows for accumulative chr positions
