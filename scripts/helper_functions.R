@@ -13,7 +13,8 @@ read_buscos <- function(file_name, prefix){
     # TODO: add warning here
     #df[, chr_label] <- trim_strings(df[, chr_label], ":", 1)
   #}
-  df <- df[df$status %in% c("Complete", "Duplicated"),]
+  df <- df[df$status %in% c("Complete"),]
+  #df <- df[df$status %in% c("Complete", "Duplicated"),]
   df <- subset(df, select=-c(status))
   return(df)
 }
@@ -179,7 +180,7 @@ plot_one_ref_chr <- function(df, adjustment_length_R, adjustment_length_Q, y_off
  # col = border
   for (i in 1:nrow(df)){ # curved lines- sigmoid connector = x1,y1,x2,y2
     busco <-df$busco[i]
-    col1 <- busco_2_colour$chr_colour[busco_2_colour$busco == busco]
+    col1 <- busco_2_colour[busco_2_colour$busco == busco,]$colour
     #col2 <- t_col(col1, alpha) # this is occasionally erroring - I don't know why?
     col2 <- col1 # for now lets keep both strands same colour rather than reverse strand being half as transparent (see above line)
     cols = c(col1, col2)
