@@ -58,41 +58,6 @@ chr_offset <- max(ref_chroms$length) / 2 # make chr offset 50% of the largest ch
 # NB: using ref genome as a proxy for chr lengths in other genomes too
 
 ### generate alignments ###
-
-make_alignment_table <- function(R_df, R_chroms, Q_df, Q_chroms, chr_offset, algs = NULL){
-  alignments <- merge(Q_df, R_df, by = 'busco')
-  alignments <- alignments %>% group_by(chrR) %>% filter(n() > minimum_buscos) %>% ungroup()
-  
-  # apply any filters
-  # ref chromosomes
-  R_chroms <- R_chroms %>% filter(chr %in% alignments$chrR)
-  R_chroms <- R_chroms %>% arrange(order)
-  chr_order_R <- R_chroms[,c("chr", "length")] # extract order and length of chr
-  
-  #query chromosomes
-  Q_chroms <- Q_chroms %>% filter(chr %in% alignments$chrQ)
-  Q_chroms <- Q_chroms %>% arrange(order)
-  chr_order_Q <- Q_chroms[,c("chr", "length")] #extract order and length of chr
-  
-  alignments <- perform_inverts(alignments, Q_chroms)
-  offset_alignments_Q <- offset_chr(alignments, 'Q', chr_offset, chr_order_Q)
-  offset_alignments_RQ <- offset_chr(offset_alignments_Q$df, 'R', chr_offset, chr_order_R)
-  alignments <- offset_alignments_RQ$df
-  offset_list_R <- offset_alignments_RQ$offset_list
-  offset_list_Q <- offset_alignments_Q$offset_list
-  
-  if(!is.null(args$alg_file)){
-    alignments <- merge(alignments, algs, by='busco')
-  }else{
-    alignments$alg <- NA
-  }
-  
-  output_list <- list('alignments' = alignments, 
-                      'chr_order_R' = chr_order_R, 'chr_order_Q' = chr_order_Q,
-                      'offset_list_R' = offset_list_R, 'offset_list_Q' = offset_list_Q)
-  return(output_list)
-}
-
 processed_Q_list <- list()
 max_ends <- list()
 
