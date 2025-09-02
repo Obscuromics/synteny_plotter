@@ -165,7 +165,7 @@ offset_chr <- function(df, q_or_r, chr_offset, chr_order){
   return(output_list)
 }
 
-plot_one_ref_chr <- function(df, adjustment_length_R, adjustment_length_Q, y_offset, busco_2_colour, alpha){ 
+plot_one_ref_chr <- function(df, adjustment_length_R, adjustment_length_Q, y_offset, busco_2_colour, alpha, lwd = 0.1){ 
   df$Qstart <- df$Qstart + adjustment_length_Q
   df$Qend <- df$Qend + adjustment_length_Q
   df$Rstart <- df$Rstart + adjustment_length_R
