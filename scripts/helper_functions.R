@@ -62,7 +62,7 @@ generate_auto_query_order <- function(chromosomes_R, busco_R, busco_Q){
 
 #make a polygon from two lines - SIMON
 lines.to.poly <- function(l1,l2, col=NULL, border=NULL, lwd=NULL){
-  polygon(c(l1[,1],rev(l2[,1])), c(l1[,2],rev(l2[,2])), col=col, border=border)
+  polygon(c(l1[,1],rev(l2[,1])), c(l1[,2],rev(l2[,2])), col=col, border=border, lwd = lwd)
 }
 
 sigmoid.connector <- function(x1,y1,x2,y2, curvature=10, steps=50, vertical=FALSE){
@@ -218,13 +218,13 @@ make_alignment_table <- function(R_df, R_chroms, Q_df, Q_chroms, chr_offset, alg
   
   # apply any filters
   # ref chromosomes
-  R_chroms <- R_chroms %>% filter(chr %in% alignments$chrR)
-  R_chroms <- R_chroms %>% arrange(order)
+  R_chroms <- R_chroms %>% 
+    filter(chr %in% alignments$chrR) %>% arrange(order)
   chr_order_R <- R_chroms[,c("chr", "length")] # extract order and length of chr
   
   #query chromosomes
-  Q_chroms <- Q_chroms %>% filter(chr %in% alignments$chrQ)
-  Q_chroms <- Q_chroms %>% arrange(order)
+  Q_chroms <- Q_chroms %>% 
+    filter(chr %in% alignments$chrQ) %>% arrange(order)
   chr_order_Q <- Q_chroms[,c("chr", "length")] #extract order and length of chr
   
   alignments <- perform_inverts(alignments, Q_chroms)
