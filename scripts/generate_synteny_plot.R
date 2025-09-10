@@ -57,6 +57,7 @@ chr_offset <- max(ref_chroms$length) / 2 # make chr offset 50% of the largest ch
 ### generate alignments ###
 processed_Q_list <- list()
 max_ends <- list()
+plot_size <- list()
 
 for (file in busco_list[-1]){
   print(file)
@@ -85,6 +86,9 @@ for (file in busco_list[-1]){
   
   max_ends <- append(max_ends, max(ref_chroms$Rend+chr_offset))
   max_ends <- append(max_ends, max(query_chroms$Qend+chr_offset))
+  
+  plot_size <- append(plot_size, (sum(ref_chroms$length) + chr_offset*(nrow(ref_chroms)-1)))
+  plot_size <- append(plot_size, (sum(query_chroms$length) + chr_offset*(nrow(query_chroms)-1)))
 }
 
 ### plotting ###
@@ -153,7 +157,7 @@ if(colour_by == "algs"){
 }
 
 max_end <- max(unlist(max_ends))
-plot_length <- max_end + 3500000000 # make plot_length the max of the longest chr set
+plot_length <- max(unlist(plot_size)) # make plot_length the max of the longest chr set
 gap <- args$gap
 #gap <- 6
 alpha = 0.6
@@ -168,7 +172,7 @@ plot(0,cex = 0, xlim = c(1, plot_length),
      xlab = "", ylab = "", bty = "n", yaxt="n", xaxt="n")
 
 main_counter <- 1
-y_offset <- -20
+y_offset <- 0
 y_increment <- 5
 
 while(main_counter <= length(processed_Q_list)){
@@ -191,11 +195,8 @@ while(main_counter <= length(processed_Q_list)){
     adjustment_length_R <- (max_end - max(ref_chroms$Rend)) / 2 
   }
   
-  print(adjustment_length_R)
-  print(adjustment_length_Q)
-  
   if(main_counter != (length(processed_Q_list) - 2)){
-    print(main_counter)
+    
     # plot alignments
     for (i in ref_chroms$chr){
       if(i %in% alignments$chrR){
@@ -232,20 +233,18 @@ while(main_counter <= length(processed_Q_list)){
   } else {
     
     # plot alignments
-    counter <- 1
     for (i in ref_chroms$chr){
       temp <- alignments[alignments$chrR == i,]
       y1 <- gap-y_offset-y_increment
       y2 <- gap-y_offset
       plot_one_ref_chr(temp, adjustment_length_R, adjustment_length_Q, 
                        y1, y2, busco2colour, alpha)
-      counter <- counter + 1
     }
     
     # plotting reference chromosomes
+    counter <- 0
     offset <- 0
     for (i in ref_chroms$chr){
-    counter <- 0
       Rfirst <- ref_chroms[ref_chroms$chr == i,]$Rstart
       Rlast <- ref_chroms[ref_chroms$chr == i,]$Rend
       
