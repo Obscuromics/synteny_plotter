@@ -165,7 +165,9 @@ offset_chr <- function(df, q_or_r, chr_offset, chr_order){
   return(output_list)
 }
 
-plot_one_ref_chr <- function(df, adjustment_length_R, adjustment_length_Q, y_offset, busco_2_colour, alpha, lwd = 0.1){ 
+plot_one_ref_chr <- function(df, adjustment_length_R, adjustment_length_Q,
+                             y1, y2, busco_2_colour, alpha, lwd = 0.1){
+  
   df$Qstart <- df$Qstart + adjustment_length_Q
   df$Qend <- df$Qend + adjustment_length_Q
   df$Rstart <- df$Rstart + adjustment_length_R
@@ -174,10 +176,7 @@ plot_one_ref_chr <- function(df, adjustment_length_R, adjustment_length_Q, y_off
   Qends <- df$Qend
   Rstarts <- df$Rstart # was alignments
   Rends <- df$Rend # was alignments
-  #cols =  c("blue", "red")
-#  cols = c(col1, col2)
- # border = ifelse(sign(Rends - Rstarts) == sign(Qends - Qstarts), cols[1], cols[2]) # if R&Q are same sign, use blue, else use red
- # col = border
+  
   for (i in 1:nrow(df)){ # curved lines- sigmoid connector = x1,y1,x2,y2
     busco <-df$busco[i]
     col1 <- busco_2_colour[busco_2_colour$busco == busco,]$colour
@@ -186,8 +185,8 @@ plot_one_ref_chr <- function(df, adjustment_length_R, adjustment_length_Q, y_off
     cols = c(col1, col2)
     border = ifelse(sign(Rends - Rstarts) == sign(Qends - Qstarts), cols[1], cols[2]) # if R&Q are same sign, use blue, else use red
     col = border
-    lines.to.poly(sigmoid.connector(Qstarts[i], 1-gap-y_offset, Rstarts[i], 0+gap-y_offset, vertical=T),
-                  sigmoid.connector(Qends[i], 1-gap-y_offset, Rends[i], 0+gap-y_offset, vertical=T),
+    lines.to.poly(sigmoid.connector(Qstarts[i], y1, Rstarts[i], y2, vertical=T),
+                  sigmoid.connector(Qends[i], y1, Rends[i], y2, vertical=T),
                   col = col[i], border=ifelse(show_outline==FALSE, NA, border[i]), lwd=lwd)
   }
 }
@@ -243,5 +242,38 @@ make_alignment_table <- function(R_df, R_chroms, Q_df, Q_chroms, chr_offset, alg
   output_list <- list('alignments' = alignments, 
                       'chr_order_R' = chr_order_R, 'chr_order_Q' = chr_order_Q,
                       'offset_list_R' = offset_list_R, 'offset_list_Q' = offset_list_Q)
-  return(output_list)
+  
+  #return(output_list)
+}
+
+# generate alignments
+make_alignment_table_upd <- function(R_df, R_chroms, Q_df, Q_chroms, chr_offset, algs = NULL){
+  alignments <- merge(Q_df, R_df, by = 'busco')
+  alignments <- alignments %>% group_by(chrR) %>% filter(n() > minimum_buscos) %>% ungroup()
+  
+  # apply any filters
+  # ref chromosomes
+  R_chroms <- R_chroms %>% 
+    filter(chr %in% alignments$chrR) %>% arrange(order)
+  chr_order_R <- R_chroms[,c("chr", "length")] # extract order and length of chr
+  
+  #query chromosomes
+  Q_chroms <- Q_chroms %>% 
+    filter(chr %in% alignments$chrQ) %>% arrange(order)
+  chr_order_Q <- Q_chroms[,c("chr", "length")] #extract order and length of chr
+  
+  alignments <- perform_inverts(alignments, Q_chroms)
+  offset_alignments_Q <- offset_chr(alignments, 'Q', chr_offset, chr_order_Q)
+  offset_alignments_RQ <- offset_chr(offset_alignments_Q$df, 'R', chr_offset, chr_order_R)
+  alignments <- offset_alignments_RQ$df
+  offset_list_R <- offset_alignments_RQ$offset_list
+  offset_list_Q <- offset_alignments_Q$offset_list
+  
+  if(!is.null(algs)){
+    alignments <- merge(alignments, algs, by='busco')
+  }else{
+    alignments$alg <- NA
+  }
+  
+  return(alignments)
 }

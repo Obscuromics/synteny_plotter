@@ -24,12 +24,12 @@ args <- parser$parse_args()
 
 ### specify arguments and parameters ###
 busco_list <- readLines(file(args$busco_list)) 
-#busco_list <- readLines(file("/Users/ab66/Documents/sanger_work/Tools/synteny_plotter/busco_list.tsv"))
+#busco_list <- readLines("busco_list.tsv")
 chrom_list <- readLines(file(args$chrom_list))
-#chrom_list <- readLines(file("/Users/ab66/Documents/sanger_work/Tools/synteny_plotter/chrom_list.tsv"))
+#chrom_list <- readLines("chrom_list.tsv")
 
-minimum_buscos <- args$f
-#minimum_buscos <- 5
+#minimum_buscos <- args$f
+minimum_buscos <- 5
 
 print('[+] Processing list of file(s):')
 print(busco_list)
@@ -49,11 +49,8 @@ if (args$colour_by == "algs"){
   }
 }
 
-# Read ref files
-ref_df <- read_buscos(busco_list[1], 'R')
-ref_chroms <- read.table(chrom_list[1], sep = '\t', header = TRUE)
-ref_chroms <- ref_chroms %>% arrange(order)
-
+ref_chroms <- read.table(chrom_list[1], sep = '\t', header = TRUE) %>%
+  arrange(order)
 chr_offset <- max(ref_chroms$length) / 2 # make chr offset 50% of the largest chr size in the ref chr set
 # NB: using ref genome as a proxy for chr lengths in other genomes too
 
@@ -61,23 +58,33 @@ chr_offset <- max(ref_chroms$length) / 2 # make chr offset 50% of the largest ch
 processed_Q_list <- list()
 max_ends <- list()
 
-temp_ref_chroms <- ref_chroms
-temp_ref_df <- ref_df
-
 for (file in busco_list[-1]){
-  #print(file)
+  print(file)
+  #file = busco_list[2]
   i <- match(file, busco_list)
-  query_df <- read_buscos(file, 'Q')
-  query_chroms <- read.table(chrom_list[i], sep = '\t', header = TRUE)
-  processed_Q <- make_alignment_table(temp_ref_df, temp_ref_chroms, 
-                                      query_df, query_chroms, chr_offset, algs = algs)
-  alignments <- processed_Q$alignments
-  processed_Q_list <- append(processed_Q_list, processed_Q)
-  max_ends <- append(max_ends, max(alignments$Rend))
-  max_ends <- append(max_ends, max(alignments$Qend))
-  temp_ref_df <- query_df
-  colnames(temp_ref_df) <- c('busco', 'chrR', 'Rstart', 'Rend', 'Rstrand')
-  temp_ref_chroms <- query_chroms
+  
+  # Read ref files
+  ref_df <- read_buscos(busco_list[i-1], 'R')
+  ref_chroms <- read.table(chrom_list[i-1], sep = '\t', header = TRUE) %>%
+    arrange(order) %>%
+    mutate(Rend = cumsum(as.numeric(length)))
+  ref_chroms$Rstart <- c(0, ref_chroms$Rend[1:nrow(ref_chroms) - 1])
+  
+  # read query files
+  query_df <- read_buscos(busco_list[i], 'Q')
+  query_chroms <- read.table(chrom_list[i], sep = '\t', header = TRUE) %>%
+    arrange(order) %>%
+    mutate(Qend = cumsum(as.numeric(length)))
+  query_chroms$Qstart <- c(0, query_chroms$Qend[1:nrow(query_chroms) - 1])
+  
+  # generate alignments
+  alignments <- make_alignment_table_upd(
+    ref_df, ref_chroms, query_df, query_chroms, chr_offset)#, algs = algs)
+  processed_Q_list <- append(processed_Q_list, 
+                             list(alignments, ref_chroms, query_chroms))
+  
+  max_ends <- append(max_ends, max(ref_chroms$Rend+chr_offset))
+  max_ends <- append(max_ends, max(query_chroms$Qend+chr_offset))
 }
 
 ### plotting ###
@@ -126,7 +133,7 @@ if(colour_by == "chromosomes"){
   
   col_list_final <- col_list[1:nrow(ref_chroms)] # subset col_list to number needed based on number of ref chromosomes
   ref_chroms$colour <- col_list_final
-  busco2colour <- ref_chroms[,c(1,6)]
+  busco2colour <- ref_chroms[,c(1,8)]
   temp <- ref_df[,c(1,2)]
   colnames(temp) <- c('busco', 'chr')
   busco2colour <- merge(busco2colour, temp, by = 'chr')
@@ -146,18 +153,14 @@ if(colour_by == "algs"){
 }
 
 max_end <- max(unlist(max_ends))
-plot_length <- max_end # make plot_length the max of the longest chr set
+plot_length <- max_end + 3500000000 # make plot_length the max of the longest chr set
 gap <- args$gap
 #gap <- 6
 alpha = 0.6
 show_outline = TRUE
 
-ref_df <- read_buscos(busco_list[1], 'R')
-ref_chroms <- read.table(chrom_list[1], sep = '\t', header = TRUE)
-ref_chroms <- ref_chroms %>% arrange(order)
-
 pdf(paste0(args$output_prefix, '.pdf'))
-#pdf(paste0('/Users/ab66/Documents/sanger_work/Tools/test', '.pdf'))
+#pdf(paste0("test.pdf"))
 print('[+] Generating plot')
 plot(0,cex = 0, xlim = c(1, plot_length), 
      #ylim = c(((gap+1)*-1*length(busco_list)*2),((gap+1)*length(busco_list)*2)),
@@ -165,100 +168,129 @@ plot(0,cex = 0, xlim = c(1, plot_length),
      xlab = "", ylab = "", bty = "n", yaxt="n", xaxt="n")
 
 main_counter <- 1
-y_offset <- 0
-y_increment <- 11.65
+y_offset <- -20
+y_increment <- 5
 
-for (file in busco_list[-1]){
-  j <- match(file, busco_list)
-  query_chroms <- read.table(chrom_list[j], sep = '\t', header = TRUE)
+while(main_counter <= length(processed_Q_list)){
   
   alignments <- processed_Q_list[[main_counter]]
-  chr_order_R <- processed_Q_list[[main_counter+1]]
-  chr_order_Q <- processed_Q_list[[main_counter+2]]
-  offset_list_R <- processed_Q_list[[main_counter+3]]
-  offset_list_Q <- processed_Q_list[[main_counter+4]]
+  ref_chroms <- processed_Q_list[[main_counter+1]]
+  query_chroms <- processed_Q_list[[main_counter+2]]
   
-  if (max(alignments$Qend) != max_end){ # i.e. if this is the longest chr_set
-    if (max(alignments$Rend) != max_end){
-      adjustment_length_R <- (max_end - max(alignments$Rend)) / 2 
-      adjustment_length_Q <- (max_end - max(alignments$Qend)) / 2 
-    }
-    else{
+  # calculate R and Q adjustment lengths
+  if (max(query_chroms$Qend) != max_end){ # i.e. if this is the longest chr_set
+    if (max(ref_chroms$Rend) != max_end){
+      adjustment_length_R <- (max_end - max(ref_chroms$Rend)) / 2 
+      adjustment_length_Q <- (max_end - max(query_chroms$Qend)) / 2 
+    }else{
       adjustment_length_R <- 0
-      adjustment_length_Q <- (max_end - max(alignments$Qend)) / 2 
+      adjustment_length_Q <- (max_end - max(query_chroms$Qend)) / 2 
     }
-  }
-  else{
+  }else{
     adjustment_length_Q <- 0
-    adjustment_length_R <- (max_end - max(alignments$Rend)) / 2 
+    adjustment_length_R <- (max_end - max(ref_chroms$Rend)) / 2 
   }
   
-  # align everything to the left
-  #adjustment_length_Q <- 0
-  #adjustment_length_R <- 0
+  print(adjustment_length_R)
+  print(adjustment_length_Q)
   
-  # plot alignments
-  counter <- 1
-  for (i in chr_order_R$chr){
-    temp <- alignments[alignments$chrR == i,]
-    plot_one_ref_chr(temp, adjustment_length_R, adjustment_length_Q, y_offset, busco2colour, alpha)
-    counter <- counter + 1
-  }
-  
-  # plotting query chromosomes
-  if (main_counter == (length(processed_Q_list) - 4)){
+  if(main_counter != (length(processed_Q_list) - 2)){
+    print(main_counter)
+    # plot alignments
+    for (i in ref_chroms$chr){
+      if(i %in% alignments$chrR){
+        temp <- alignments[alignments$chrR == i,]
+        y1 <- gap-y_offset-y_increment
+        y2 <- gap-y_offset
+        plot_one_ref_chr(temp, adjustment_length_R, adjustment_length_Q,
+                         y1, y2, busco2colour, alpha)
+      }
+    }
+    
+    # plotting reference chromosomes
     counter <- 0
     offset <- 0
-    for (i in chr_order_Q$chr){
-      chr_length <- chr_order_Q[chr_order_Q$chr == i,]$length
-      Qfirst <- offset
-      Qlast <- chr_order_Q[chr_order_Q$chr == i,]$length + offset
-    
-      if (counter != 0){ # only need to offset start/end if this is not the first chr
-        Qfirst <- offset  # allows for accumulative chr positions
-        Qlast <- chr_length + offset # allows for accumulative chr positions
+    for (i in ref_chroms$chr){
+      Rfirst <- ref_chroms[ref_chroms$chr == i,]$Rstart
+      Rlast <- ref_chroms[ref_chroms$chr == i,]$Rend
+      
+      if(counter != 0){
+        Rfirst <- Rfirst + offset
+        Rlast <- Rlast + offset
       }
-    
-      offset <- offset + chr_length + chr_offset # accumulative offset
+      
+      segments(Rfirst+adjustment_length_R, gap-y_offset, 
+               Rlast+adjustment_length_R, gap-y_offset, lwd = 10)
+      
+      text(x = ((Rlast+Rfirst+1)/2)+adjustment_length_R, y = gap-y_offset, 
+           label = ref_chroms[ref_chroms$chr == i,]$annot,
+           srt = 0, cex = 0.5, col = "grey")
+      
+      offset <- offset + chr_offset # accumulative offset
       counter <- counter + 1
+    }
+  } else {
     
-      segments(Qfirst+adjustment_length_Q, 1-gap-y_offset, 
-               Qlast+adjustment_length_Q, 1-gap-y_offset, lwd = 10)
+    # plot alignments
+    counter <- 1
+    for (i in ref_chroms$chr){
+      temp <- alignments[alignments$chrR == i,]
+      y1 <- gap-y_offset-y_increment
+      y2 <- gap-y_offset
+      plot_one_ref_chr(temp, adjustment_length_R, adjustment_length_Q, 
+                       y1, y2, busco2colour, alpha)
+      counter <- counter + 1
+    }
     
-      text(x = ((Qlast+Qfirst+1)/2)+adjustment_length_Q, y = 1-gap-y_offset, 
+    # plotting reference chromosomes
+    offset <- 0
+    for (i in ref_chroms$chr){
+    counter <- 0
+      Rfirst <- ref_chroms[ref_chroms$chr == i,]$Rstart
+      Rlast <- ref_chroms[ref_chroms$chr == i,]$Rend
+      
+      if(counter != 0){
+        Rfirst <- Rfirst + offset
+        Rlast <- Rlast + offset
+      }
+      
+      segments(Rfirst+adjustment_length_R, gap-y_offset, 
+               Rlast+adjustment_length_R, gap-y_offset, lwd = 10)
+      
+      text(x = ((Rlast+Rfirst+1)/2)+adjustment_length_R, y = gap-y_offset, 
+           label = ref_chroms[ref_chroms$chr == i,]$annot,
+           srt = 0, cex = 0.5, col = "grey")
+      
+      offset <- offset + chr_offset # accumulative offset
+      counter <- counter + 1
+    }
+    
+    # plotting query chromosomes
+    counter <- 0
+    offset <- 0
+    for (i in query_chroms$chr){
+      Qfirst <- query_chroms[query_chroms$chr == i,]$Qstart
+      Qlast <- query_chroms[query_chroms$chr == i,]$Qend
+      
+      if(counter != 0){
+        Qfirst <- Qfirst + offset
+        Qlast <- Qlast + offset
+      }
+      
+      segments(Qfirst+adjustment_length_Q, gap-y_offset-y_increment, 
+               Qlast+adjustment_length_Q, gap-y_offset-y_increment, lwd = 10)
+      
+      text(x = ((Qlast+Qfirst+1)/2)+adjustment_length_Q, y = gap-y_offset-y_increment, 
            label = query_chroms[query_chroms$chr == i,]$annot,
            srt = 0, cex = 0.5, col = "grey")
-    
+      
+      offset <- offset + chr_offset # accumulative offset
+      counter <- counter + 1
     }
   }
   
-  # plotting reference chromosomes
-  counter <- 0
-  offset <- 0
-  for (i in chr_order_R$chr){
-    chr_length <- chr_order_R[chr_order_R$chr == i,]$length
-    Rfirst <- offset
-    Rlast <- chr_order_R[chr_order_R$chr == i,]$length + offset
-    
-    if (counter != 0){ # only need to offset start/end if this is not the first chr
-      Rfirst <- offset  # allows for accumulative chr positions
-      Rlast <- chr_length + offset # allows for accumulative chr positions
-    }
-    
-    offset <- offset + chr_length + chr_offset # accumulative offset
-    counter <- counter + 1
-    
-    segments(Rfirst+adjustment_length_R, gap-y_offset, 
-             Rlast+adjustment_length_R, gap-y_offset, lwd = 10)
-    
-    text(x = ((Rlast+Rfirst+1)/2)+adjustment_length_R, y = gap-y_offset, 
-         label = ref_chroms[ref_chroms$chr == i,]$annot,
-         srt = 0, cex = 0.5, col = "grey")
-    }
-  
-  main_counter <- main_counter + 5
+  main_counter <- main_counter + 3
   y_offset <- y_offset + y_increment
-  ref_chroms <- query_chroms
 }
 
 dev.off()
